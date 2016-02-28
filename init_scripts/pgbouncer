@@ -16,12 +16,12 @@
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=pgbouncer
-DAEMON=/usr/sbin/$NAME
+DAEMON=/usr/sbin/${NAME}
 LOGFILE="/var/log/postgresql/pgbouncer.log"
 CONFIG="/etc/pgbouncer/pgbouncer.ini"
 PIDFILE=`awk '/pidfile/ { print $NF }' /etc/pgbouncer/pgbouncer.ini`
 PIDDIR=`dirname ${PIDFILE}`
-OPTS="-d $CONFIG "
+OPTS="-d ${CONFIG} "
 RUNASUSER="postgres"
 
 # Include pgbouncer defaults if available
@@ -30,7 +30,7 @@ if [ -f /etc/default/pgbouncer ] ; then
 fi
 
 # Check if configuration exists
-test -f $CONF || exit 0
+test -f ${CONF} || exit 0
 
 function get_pid()
 {
@@ -75,13 +75,13 @@ function start_daemon()
             exit 0
     fi
 
-    echo "Starting $NAME"
+    echo "Starting ${NAME}"
 
-    test -d $PIDDIR || install -d -o postgres -g postgres -m 2775 $PIDDIR
-    su - ${RUNASUSER} -c "${DAEMON} $OPTS > ${LOGFILE} 2>&1"
+    test -d ${PIDDIR} || install -d -o postgres -g postgres -m 2775 ${PIDDIR}
+    su - ${RUNASUSER} -c "${DAEMON} ${OPTS} > ${LOGFILE} 2>&1"
 
     get_pid
-    echo "$NAME started with pid ${RUNPID}"
+    echo "${NAME} started with pid ${RUNPID}"
 }
 
 function stop_daemon()
@@ -93,7 +93,7 @@ function stop_daemon()
     kill -2 ${RUNPID}
 }
 
-case "$1" in
+case "${1}" in
   start)
     start_daemon
     ;;
@@ -123,7 +123,7 @@ case "$1" in
     ;;
 
   *)
-    echo "Usage: /etc/init.d/$NAME {start|stop|reload|force-reload|restart|status}"
+    echo "Usage: /etc/init.d/${NAME} {start|stop|reload|force-reload|restart|status}"
     exit 1
     ;;
 esac
