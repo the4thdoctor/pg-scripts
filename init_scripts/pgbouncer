@@ -30,7 +30,7 @@ if [ -f /etc/default/pgbouncer ] ; then
 fi
 
 # Check if configuration exists
-test -f ${CONF} || exit 0
+test -f ${CONFIG} || exit 0
 
 function get_pid()
 {
