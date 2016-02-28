@@ -20,7 +20,7 @@ DAEMON=/usr/sbin/${NAME}
 LOGFILE="/var/log/postgresql/pgbouncer.log"
 CONFIG="/etc/pgbouncer/pgbouncer.ini"
 PIDFILE=`awk '/pidfile/ { print $NF }' /etc/pgbouncer/pgbouncer.ini`
-PIDDIR=`dirname ${PIDFILE}`
+PIDDIR=`dirname "${PIDFILE}"`
 OPTS="-d ${CONFIG} "
 RUNASUSER="postgres"
 
@@ -34,11 +34,11 @@ test -f ${CONF} || exit 0
 
 function get_pid()
 {
-    if [ ! -f ${PIDFILE} ]
+    if [ ! -f "${PIDFILE}" ]
     then
         RUNSTATE=1
     else
-        RUNPID=`cat ${PIDFILE}`
+        RUNPID=`cat "${PIDFILE}"`
         kill -0 ${RUNPID} > /dev/null 2>&1
         RUNSTATE=$?
     fi
