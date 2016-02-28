@@ -48,8 +48,8 @@ function check_running()
 {
     if [ "${RUNSTATE}" != "0" ]
     then
-            echo "${NAME} process not running."
-            exit 0
+        echo "${NAME} process not running."
+        exit 0
     fi
 
 }
@@ -71,8 +71,8 @@ function start_daemon()
     get_pid
     if [ "${RUNSTATE}" == "0" ]
     then
-            echo "Pgbouncer already running with pid ${RUNPID}."
-            exit 0
+        echo "Pgbouncer already running with pid ${RUNPID}."
+        exit 0
     fi
 
     echo "Starting ${NAME}"
@@ -94,36 +94,36 @@ function stop_daemon()
 }
 
 case "${1}" in
-  start)
-    start_daemon
-    ;;
+    start)
+        start_daemon
+        ;;
 
-  stop)
-    stop_daemon
-    wait_for_stop
-    ;;
+    stop)
+        stop_daemon
+        wait_for_stop
+        ;;
 
-  reload | force-reload)
-    get_pid
-    check_running
-    echo "Reloading ${NAME} with pid ${RUNPID}"
-    kill -1 ${RUNPID}
-    ;;
+    reload | force-reload)
+        get_pid
+        check_running
+        echo "Reloading ${NAME} with pid ${RUNPID}"
+        kill -1 ${RUNPID}
+        ;;
 
-  restart)
-    stop_daemon
-    wait_for_stop
-    start_daemon
-    ;;
+    restart)
+        stop_daemon
+        wait_for_stop
+        start_daemon
+        ;;
 
-  status)
-    get_pid
-    check_running
-    echo "${NAME} is running with pid ${RUNPID}."
-    ;;
+    status)
+        get_pid
+        check_running
+        echo "${NAME} is running with pid ${RUNPID}."
+        ;;
 
-  *)
-    echo "Usage: /etc/init.d/${NAME} {start|stop|reload|force-reload|restart|status}"
-    exit 1
-    ;;
+    *)
+        echo "Usage: /etc/init.d/${NAME} {start|stop|reload|force-reload|restart|status}"
+        exit 1
+        ;;
 esac
