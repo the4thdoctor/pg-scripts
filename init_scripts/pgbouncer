@@ -10,119 +10,187 @@
 # Short-Description: start pgbouncer
 # Description: pgbouncer is a connection pool server and replication
 #              proxy for PostgreSQL. Hack by Federico Campoli.
-#              The script uses su instead of start-stop-daemon in 
+#              The script uses su instead of start-stop-daemon in
 #              order to get the file limits
 ### END INIT INFO
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=pgbouncer
-DAEMON=/usr/sbin/$NAME
+DAEMON=/usr/sbin/${NAME}
 LOGFILE="/var/log/postgresql/pgbouncer.log"
 CONFIG="/etc/pgbouncer/pgbouncer.ini"
-PIDFILE=`grep pidfile /etc/pgbouncer/pgbouncer.ini|awk '{  print $NF }'`
-PIDDIR=`dirname PIDFILE`
-OPTS="-d $CONFIG "
+PIDFILE=`awk '/pidfile/ { print $NF }' "${CONFIG}"`
+PIDDIR=`dirname "${PIDFILE}"`
+OPTS="-d ${CONFIG} "
 RUNASUSER="postgres"
 
-# Include pgbouncer defaults if available
-if [ -f /etc/default/pgbouncer ] ; then
-	. /etc/default/pgbouncer
-fi
-
-# Check if configuration exists
-test -f $CONF || exit 0
-
-
-
-function get_pid()
+function main()
 {
-    if [ ! -f ${PIDFILE} ]
+    if ! check_for_pg_bouncer
     then
-        RUNSTATE=1
-    else
-        RUNPID=`cat ${PIDFILE}`
-        kill -0 ${RUNPID} > /dev/null 2>&1
-        RUNSTATE=$?
-    fi
-}
-
-function check_running()
-{
-    if [ "${RUNSTATE}" != "0" ] 
-    then
-            echo "${NAME} process not running."
-            exit 0
+        echo "Pgbouncer not found" >&2
+        exit 1
     fi
 
+    include_pg_bouncer_defaults
+
+    case "${1}" in
+        start)
+            start_daemon
+            ;;
+
+        stop)
+            stop_daemon
+            ;;
+
+        reload | force-reload)
+            reload_daemon
+            ;;
+
+        restart)
+            stop_daemon
+            start_daemon
+            ;;
+
+        status)
+            check_daemon
+            ;;
+
+        *)
+            echo "Usage: /etc/init.d/${NAME} {start|stop|reload|force-reload|restart|status}"
+            exit 1
+            ;;
+    esac
 }
 
-function wait_for_stop()
+function check_for_pg_bouncer()
 {
-    while [ "${RUNSTATE}" == "0" ]
-    do
-        sleep 1
-        get_pid
-    done
+    test -f ${CONFIG}
+}
+
+function include_pg_bouncer_defaults()
+{
+    if [ -f /etc/default/pgbouncer ]
+    then
+        . /etc/default/pgbouncer
+    fi
 }
 
 function start_daemon()
 {
-    # Check if we are still disabled in /etc/default/pgbouncer
-    [ "${START:-}" = "0" ] && exit 0
-    get_pid
-    if [ "${RUNSTATE}" == "0" ] 
+    if is_disabled_by_default
     then
-            echo "Pgbouncer already running with pid ${RUNPID}."
-            exit 0
+        echo "Pgbouncer disabled by ${CONFIG}" >&2
+        exit 0
     fi
-    echo "Starting $NAME" 
-    test -d $PIDDIR || install -d -o postgres -g postgres -m 2775 $PIDDIR
-    su - ${RUNASUSER} -c "${DAEMON} $OPTS > ${LOGFILE} 2>&1"
-    get_pid
-    echo "$NAME started with pid ${RUNPID}"  
-    
 
+    PID=`get_pid`
+    if is_running "${PID}"
+    then
+        echo "Pgbouncer already running with pid ${PID}."
+        exit 0
+    fi
+
+    echo "Starting ${NAME}"
+    if piddir_missing
+    then
+        create_piddir
+    fi
+
+    su - ${RUNASUSER} -c "${DAEMON} ${OPTS} > ${LOGFILE} 2>&1"
+
+    echo "${NAME} started with pid `get_pid`"
 }
 
 function stop_daemon()
 {
-    get_pid
-    check_running
-    echo "Stopping ${NAME} with pid ${RUNPID}" 
-    kill -2 ${RUNPID}
+    PID=`get_pid`
+    if ! is_running "${PID}"
+    then
+        echo "Pgbouncer is not running."
+        exit 0
+    fi
+
+    echo "Stopping ${NAME} with pid ${PID}"
+    kill -2 ${PID}
+
+    if ! wait_until_stopped
+    then
+        echo "Soft kill failed. Pgbouncer still running with pid `get_pid`" >&2
+        exit 1
+    fi
+    echo "Pgbouncer stopped"
 }
 
-case "$1" in
-  start)
-    start_daemon
-    ;;
+function reload_daemon()
+{
+    PID=`get_pid`
+    if ! is_running "${PID}"
+    then
+        echo "Pgbouncer is not running."
+        exit 0
+    fi
 
-  stop)
-    stop_daemon
-    wait_for_stop
-    ;;
+    echo "Reloading ${NAME} with pid ${PID}"
+    kill -1 ${PID}
+}
 
-  reload | force-reload)
-    get_pid
-    check_running
-    echo "Reloading ${NAME} with pid ${RUNPID}" 
-    kill -1 ${RUNPID}
-    ;;
+function check_daemon()
+{
+    PID=`get_pid`
+    if is_running "${PID}"
+    then
+        echo "Pgbouncer running with pid ${RUNPID}."
+    else
+        echo "Pgbouncer is not running."
+    fi
+}
 
-  restart)
-    stop_daemon
-    wait_for_stop
-    start_daemon
-    ;;
 
-  status)
-    get_pid
-    check_running
-    echo "${NAME} is running with pid ${RUNPID}."
-    ;;
+function is_disabled_by_default()
+{
+    # Check if we are still disabled in /etc/default/pgbouncer
+    [ "${START:-}" = "0" ]
+}
 
-  *)
-    echo "Usage: /etc/init.d/$NAME {start|stop|reload|force-reload|restart|status}"
-    exit 1
-    ;;
-esac
+function get_pid()
+{
+    if [ -e "${PIDFILE}" ]
+    then
+        cat "${PIDFILE}"
+    fi
+}
+
+function is_running()
+{
+    [ -n "${1}" ] && kill -0 "${1}" > /dev/null 2>&1
+}
+
+function piddir_missing()
+{
+    ! test -d "${PIDDIR}"
+}
+
+function create_piddir()
+{
+    install -d -o postgres -g postgres -m 2775 "${PIDDIR}"
+}
+
+function wait_until_stopped()
+{
+    COUNT=0
+    while is_running
+    do
+        if [ ${COUNT} -gt 30 ]
+        then
+            return 1
+        fi
+        COUNT=$((${COUNT} + 1))
+
+        echo -n '.'
+        sleep 1
+    done
+}
+
+
+main "${1}"
